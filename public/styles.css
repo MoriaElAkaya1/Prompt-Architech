@@ -179,6 +179,13 @@ button:focus {
   font-size: 0.88rem;
 }
 
+.preset-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 0.25rem;
+}
+
 button {
   display: inline-flex;
   align-items: center;
@@ -203,6 +210,20 @@ button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
   transform: none;
+}
+
+.preset-btn {
+  border: 1px solid #b8c8d7;
+  background: #f6f8fe;
+  color: var(--ink-700);
+  padding: 0.6rem 0.7rem;
+  font-size: 0.85rem;
+  border-radius: 0.72rem;
+}
+
+.preset-btn:hover {
+  border-color: #8da7cc;
+  background: #edf3ff;
 }
 
 .btn-spinner {
@@ -240,6 +261,15 @@ button.is-loading .btn-spinner {
   color: var(--ink-500);
 }
 
+.result-meta {
+  margin-bottom: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.88rem;
+  color: var(--ink-700);
+}
+
 .result-box {
   border-radius: 1rem;
   border: 1px solid #cccedd;
@@ -268,6 +298,10 @@ button.is-loading .btn-spinner {
 
   .app-shell {
     margin-top: 1.5rem;
+  }
+
+  .preset-actions {
+    grid-template-columns: 1fr;
   }
 
   button {

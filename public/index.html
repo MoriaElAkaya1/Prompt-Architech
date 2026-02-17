@@ -73,6 +73,25 @@
             />
             <p class="range-caption">0.0 = deterministic, 2.0 = highly creative</p>
 
+            <div class="preset-actions">
+              <button
+                class="preset-btn"
+                type="button"
+                id="preset-deterministic"
+                title="Sets T=0.0 with a logic/code style request"
+              >
+                Deterministic test (T=0.0)
+              </button>
+              <button
+                class="preset-btn"
+                type="button"
+                id="preset-creative"
+                title="Sets T=1.5 with a creative writing request"
+              >
+                Creative test (T=1.5)
+              </button>
+            </div>
+
             <button id="submit-btn" type="submit">
               <span class="btn-spinner" aria-hidden="true"></span>
               <span class="btn-label">Generate Response</span>
@@ -86,6 +105,10 @@
           <p class="result-subtitle">
             Model output will appear here after processing.
           </p>
+          <div id="result-meta" class="result-meta">
+            <span><strong>Model:</strong> <span id="meta-model">-</span></span>
+            <span><strong>Temperature:</strong> <span id="meta-temp">-</span></span>
+          </div>
           <div id="result-box" class="result-box" aria-live="polite">
             Submit a prompt to view the response.
           </div>
