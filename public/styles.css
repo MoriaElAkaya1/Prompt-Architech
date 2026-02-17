@@ -71,6 +71,7 @@ body {
 
 .hero {
   margin-bottom: 1.8rem;
+  animation: fade-up 420ms ease both;
 }
 
 .eyebrow {
@@ -107,6 +108,11 @@ h1 {
   background: var(--panel);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow);
+  animation: fade-up 460ms ease both;
+}
+
+.panel--output {
+  animation-delay: 90ms;
 }
 
 .panel h2 {
@@ -174,6 +180,10 @@ button:focus {
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   border: 0;
   border-radius: 0.75rem;
   padding: 0.82rem 1rem;
@@ -189,10 +199,40 @@ button:hover {
   transform: translateY(-1px);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.btn-spinner {
+  width: 0.88rem;
+  height: 0.88rem;
+  border: 2px solid #ffffff55;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+  opacity: 0;
+}
+
+button.is-loading .btn-spinner {
+  opacity: 1;
+}
+
 .form-message {
   min-height: 1.2rem;
   margin: 0;
   color: var(--ink-700);
+}
+
+.form-message.is-error {
+  color: #b7313f;
+  font-weight: 600;
+}
+
+.form-message.is-success {
+  color: #0c6659;
+  font-weight: 600;
 }
 
 .result-subtitle {
@@ -208,6 +248,17 @@ button:hover {
   padding: 1rem;
   line-height: 1.6;
   white-space: pre-wrap;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.result-box.is-loading {
+  border-color: #9eb5f6;
+  background: #ecf2ff;
+}
+
+.result-box.is-error {
+  border-color: #ea9fa9;
+  background: #fff2f4;
 }
 
 @media (max-width: 960px) {
@@ -217,5 +268,27 @@ button:hover {
 
   .app-shell {
     margin-top: 1.5rem;
+  }
+
+  button {
+    position: sticky;
+    bottom: 0.8rem;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
