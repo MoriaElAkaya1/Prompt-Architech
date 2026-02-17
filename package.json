@@ -1,0 +1,28 @@
+{
+  "name": "promptarchitech",
+  "version": "1.0.0",
+  "description": "Prompt Proxy assignment project",
+  "main": "server/server.js",
+  "scripts": {
+    "dev": "node --watch server/server.js",
+    "start": "node server/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MoriaElAkaya1/Prompt-Architech.git"
+  },
+  "keywords": [],
+  "author": "Moria El Akaya",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MoriaElAkaya1/Prompt-Architech/issues"
+  },
+  "homepage": "https://github.com/MoriaElAkaya1/Prompt-Architech#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "openai": "^6.22.0"
+  }
+}
