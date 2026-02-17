@@ -3,12 +3,93 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prompt Architect</title>
+    <title>Prompt Architect | Prompt Proxy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main>
-      <h1>Prompt Architect</h1>
-      <p>Initial scaffold complete. UI implementation follows in next commits.</p>
+    <div class="backdrop">
+      <span class="orb orb--amber" aria-hidden="true"></span>
+      <span class="orb orb--teal" aria-hidden="true"></span>
+      <span class="orb orb--blue" aria-hidden="true"></span>
+    </div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">GenAI Assignment 2</p>
+        <h1>Prompt Architect Proxy Lab</h1>
+        <p class="hero-copy">
+          Build, inspect, and control a multi-layered prompt before it reaches
+          the model.
+        </p>
+      </header>
+
+      <section class="layout-grid">
+        <article class="panel panel--controls">
+          <h2>Input Layer</h2>
+          <form id="prompt-form" novalidate>
+            <label for="user-input">User Input</label>
+            <textarea
+              id="user-input"
+              name="userInput"
+              placeholder="Ask the assistant something realistic..."
+              rows="7"
+              required
+            ></textarea>
+
+            <label for="persona">System Prompt Persona</label>
+            <select id="persona" name="persona" required>
+              <option value="Software Engineer">Software Engineer</option>
+              <option value="Computer science teacher">
+                Computer science teacher
+              </option>
+              <option value="musician">musician</option>
+              <option value="network administrator">
+                network administrator
+              </option>
+              <option value="Artist">Artist</option>
+              <option value="Photographer">Photographer</option>
+              <option value="nurse">nurse</option>
+              <option value="pediatrician">pediatrician</option>
+            </select>
+
+            <div class="slider-head">
+              <label for="temperature">Temperature</label>
+              <output id="temperature-value" for="temperature">1.0</output>
+            </div>
+            <input
+              id="temperature"
+              name="temperature"
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value="1.0"
+            />
+            <p class="range-caption">0.0 = deterministic, 2.0 = highly creative</p>
+
+            <button id="submit-btn" type="submit">Generate Response</button>
+            <p id="form-message" class="form-message" aria-live="polite"></p>
+          </form>
+        </article>
+
+        <article class="panel panel--output">
+          <h2>Result</h2>
+          <p class="result-subtitle">
+            Model output will appear here after processing.
+          </p>
+          <div id="result-box" class="result-box" aria-live="polite">
+            Submit a prompt to view the response.
+          </div>
+        </article>
+      </section>
     </main>
+
+    <script src="./app.js"></script>
   </body>
 </html>
