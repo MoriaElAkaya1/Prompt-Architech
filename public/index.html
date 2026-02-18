@@ -41,6 +41,7 @@
               rows="7"
               required
             ></textarea>
+            <p id="char-counter" class="char-counter">0/1800 characters</p>
 
             <label for="persona">System Prompt Persona</label>
             <select id="persona" name="persona" required>
@@ -108,6 +109,9 @@
           <div id="result-meta" class="result-meta">
             <span><strong>Model:</strong> <span id="meta-model">-</span></span>
             <span><strong>Temperature:</strong> <span id="meta-temp">-</span></span>
+            <span><strong>Cache:</strong> <span id="meta-cache">-</span></span>
+            <span><strong>Max tokens:</strong> <span id="meta-max-output">-</span></span>
+            <span><strong>Profile:</strong> <span id="meta-budget-profile">-</span></span>
           </div>
           <div id="result-box" class="result-box" aria-live="polite">
             Submit a prompt to view the response.
