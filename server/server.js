@@ -13,6 +13,27 @@ const HF_ROUTER_URL =
 const DEFAULT_MODEL =
   process.env.HF_MODEL || "swiss-ai/Apertus-8B-Instruct-2509:publicai";
 const API_TOKEN = process.env.HF_TOKEN || process.env.OPENAI_API_KEY;
+const BUDGET_PROFILE = process.env.BUDGET_PROFILE || "balanced";
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const HF_MAX_OUTPUT_TOKENS = parsePositiveInt(
+  process.env.HF_MAX_OUTPUT_TOKENS,
+  220
+);
+const HF_MAX_INPUT_CHARS = parsePositiveInt(process.env.HF_MAX_INPUT_CHARS, 1800);
+const HF_CACHE_TTL_SECONDS = parsePositiveInt(process.env.HF_CACHE_TTL_SECONDS, 1800);
+const RATE_LIMIT_WINDOW_SECONDS = parsePositiveInt(
+  process.env.RATE_LIMIT_WINDOW_SECONDS,
+  60
+);
+const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(
+  process.env.RATE_LIMIT_MAX_REQUESTS,
+  6
+);
 
 if (!API_TOKEN) {
   console.warn(
@@ -50,6 +71,7 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({
       ok: false,
       error: "User input is required.",
+      code: "INVALID_INPUT",
     });
   }
 
@@ -57,6 +79,15 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({
       ok: false,
       error: "System message is required.",
+      code: "INVALID_SYSTEM_MESSAGE",
+    });
+  }
+
+  if (userInput.trim().length > HF_MAX_INPUT_CHARS) {
+    return res.status(400).json({
+      ok: false,
+      error: `User input is too long. Maximum length is ${HF_MAX_INPUT_CHARS} characters.`,
+      code: "INPUT_TOO_LONG",
     });
   }
 
@@ -68,6 +99,7 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({
       ok: false,
       error: "Temperature must be a number between 0.0 and 2.0.",
+      code: "INVALID_TEMPERATURE",
     });
   }
 
@@ -76,6 +108,7 @@ app.post("/api/chat", async (req, res) => {
       ok: false,
       error:
         "HF_TOKEN is not configured on the server. Add it to .env and restart.",
+      code: "MISSING_HF_TOKEN",
     });
   }
 
@@ -83,6 +116,7 @@ app.post("/api/chat", async (req, res) => {
     const completion = await client.chat.completions.create({
       model: DEFAULT_MODEL,
       temperature: normalizedTemp,
+      max_tokens: HF_MAX_OUTPUT_TOKENS,
       messages: [
         { role: "system", content: systemMessage.trim() },
         { role: "user", content: userInput.trim() },
@@ -103,6 +137,9 @@ app.post("/api/chat", async (req, res) => {
       meta: {
         model: completion.model || DEFAULT_MODEL,
         temperature: normalizedTemp,
+        cacheHit: false,
+        maxOutputTokens: HF_MAX_OUTPUT_TOKENS,
+        budgetProfile: BUDGET_PROFILE,
       },
     });
   } catch (error) {
@@ -141,5 +178,8 @@ app.post("/api/chat", async (req, res) => {
 });
 
 app.listen(PORT, () => {
+  console.log(
+    `[budget-config] profile=${BUDGET_PROFILE}, maxOutputTokens=${HF_MAX_OUTPUT_TOKENS}, maxInputChars=${HF_MAX_INPUT_CHARS}, cacheTtlSeconds=${HF_CACHE_TTL_SECONDS}, rateLimitWindowSeconds=${RATE_LIMIT_WINDOW_SECONDS}, rateLimitMaxRequests=${RATE_LIMIT_MAX_REQUESTS}`
+  );
   console.log(`Prompt Architect server listening on http://localhost:${PORT}`);
 });
