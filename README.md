@@ -30,6 +30,7 @@ This project implements a **Prompt Proxy** that wraps user requests with a selec
 - Two built-in experiment presets:
   - Deterministic test (`T=0.0`)
   - Creative test (`T=1.5`)
+- Balanced budget mode adds input/output caps, caching, and throttling to preserve free-tier usage.
 
 ### UI/UX Functionality (Exceptional target)
 - Responsive, modern editorial gradient layout.
@@ -80,6 +81,12 @@ This project implements a **Prompt Proxy** that wraps user requests with a selec
    HF_TOKEN=hf_your_real_token_here
    HF_MODEL=swiss-ai/Apertus-8B-Instruct-2509:publicai
    HF_ROUTER_URL=https://router.huggingface.co/v1
+   BUDGET_PROFILE=balanced
+   HF_MAX_OUTPUT_TOKENS=220
+   HF_MAX_INPUT_CHARS=1800
+   HF_CACHE_TTL_SECONDS=1800
+   RATE_LIMIT_WINDOW_SECONDS=60
+   RATE_LIMIT_MAX_REQUESTS=6
    PORT=3000
    ```
 4. Start the app:
@@ -142,7 +149,10 @@ Success response:
   "result": "model output text",
   "meta": {
     "model": "swiss-ai/Apertus-8B-Instruct-2509:publicai",
-    "temperature": 0.0
+    "temperature": 0.0,
+    "cacheHit": false,
+    "maxOutputTokens": 220,
+    "budgetProfile": "balanced"
   }
 }
 ```
@@ -152,9 +162,33 @@ Error response:
 ```json
 {
   "ok": false,
-  "error": "safe user-facing message"
+  "error": "safe user-facing message",
+  "code": "ERROR_CODE",
+  "retryAfterSeconds": 12
 }
 ```
+
+## Free-Tier Budget Mode (Balanced)
+- `HF_MAX_OUTPUT_TOKENS=220`: caps completion length to reduce credit burn.
+- `HF_MAX_INPUT_CHARS=1800`: rejects oversized prompts before provider call.
+- `HF_CACHE_TTL_SECONDS=1800`: returns cached responses for identical requests for 30 minutes.
+- In-flight dedupe: identical simultaneous requests share one provider call.
+- `RATE_LIMIT_WINDOW_SECONDS=60` and `RATE_LIMIT_MAX_REQUESTS=6`: per-IP throttling prevents rapid drain.
+
+UI budget feedback:
+- Character counter with warning at `1500` and client-side hard stop at `1800`.
+- Cooldown countdown after `RATE_LIMITED` responses.
+- Result metadata includes `cacheHit`, `maxOutputTokens`, and `budgetProfile`.
+
+## Troubleshooting
+
+| HTTP | Code | Meaning | Action |
+|---|---|---|---|
+| 402 | `HF_CREDITS_DEPLETED` | Hugging Face credits are exhausted | Wait for reset or add credits/PRO |
+| 429 | `RATE_LIMITED` | App-level throttle triggered | Wait `retryAfterSeconds` then retry |
+| 429 | `HF_PROVIDER_RATE_LIMITED` | Provider-side limit reached | Slow request rate or wait/reset |
+| 401 | `INVALID_HF_TOKEN` | Token invalid/missing permission | Regenerate token with Inference Provider access |
+| 404 | `HF_MODEL_NOT_AVAILABLE` | Selected model unavailable | Use supported model, default in `.env.example` |
 
 ## Security Notes
 - `.env` is gitignored and must never be committed.
