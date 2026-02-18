@@ -265,11 +265,21 @@ app.post("/api/chat", async (req, res) => {
   } catch (error) {
     console.error("Hugging Face Router API error:", error?.message || error);
 
+    if (error?.status === 402) {
+      return res.status(402).json({
+        ok: false,
+        error:
+          "Hugging Face credits are depleted. Wait for reset or add credits/PRO, then retry.",
+        code: "HF_CREDITS_DEPLETED",
+      });
+    }
+
     if (error?.status === 429) {
       return res.status(429).json({
         ok: false,
         error:
           "Hugging Face rate limit or quota reached. Check your HF plan/credits and retry.",
+        code: "HF_PROVIDER_RATE_LIMITED",
       });
     }
 
@@ -278,6 +288,7 @@ app.post("/api/chat", async (req, res) => {
         ok: false,
         error:
           "Invalid token. Verify HF_TOKEN in .env and restart the server.",
+        code: "INVALID_HF_TOKEN",
       });
     }
 
@@ -286,6 +297,7 @@ app.post("/api/chat", async (req, res) => {
         ok: false,
         error:
           "Configured HF model is unavailable. Try HF_MODEL=swiss-ai/Apertus-8B-Instruct-2509:publicai.",
+        code: "HF_MODEL_NOT_AVAILABLE",
       });
     }
 
@@ -293,6 +305,7 @@ app.post("/api/chat", async (req, res) => {
       return res.status(502).json({
         ok: false,
         error: "The model returned an empty response.",
+        code: "HF_EMPTY_RESPONSE",
       });
     }
 
@@ -300,6 +313,7 @@ app.post("/api/chat", async (req, res) => {
       ok: false,
       error:
         "Unable to complete your request right now. Check API key and model access.",
+      code: "HF_UNKNOWN_ERROR",
     });
   } finally {
     if (createdNewRequest) {
