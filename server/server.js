@@ -96,6 +96,35 @@ app.post("/api/chat", async (req, res) => {
     });
   } catch (error) {
     console.error("OpenAI API error:", error?.message || error);
+
+    if (
+      error?.status === 429 &&
+      (error?.code === "insufficient_quota" ||
+        error?.type === "insufficient_quota")
+    ) {
+      return res.status(429).json({
+        ok: false,
+        error:
+          "Your OpenAI account has insufficient quota. Add billing/credits, then retry.",
+      });
+    }
+
+    if (error?.status === 401) {
+      return res.status(401).json({
+        ok: false,
+        error:
+          "Invalid API key for this project. Verify OPENAI_API_KEY in .env and restart the server.",
+      });
+    }
+
+    if (error?.status === 404) {
+      return res.status(404).json({
+        ok: false,
+        error:
+          "The configured model is unavailable for this account. Try OPENAI_MODEL=gpt-4o-mini.",
+      });
+    }
+
     return res.status(500).json({
       ok: false,
       error:
