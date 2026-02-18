@@ -1,4 +1,5 @@
 const path = require("path");
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -35,6 +36,10 @@ const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(
   6
 );
 
+const cacheByRequestKey = new Map();
+const inFlightByRequestKey = new Map();
+const requestTimestampsByIp = new Map();
+
 if (!API_TOKEN) {
   console.warn(
     "HF_TOKEN is not set. /api/chat requests will fail until you configure it."
@@ -54,6 +59,63 @@ const client = API_TOKEN
     })
   : null;
 
+function buildRequestKey({ model, temperature, systemMessage, userInput, maxTokens }) {
+  const material = `${model}|${temperature}|${maxTokens}|${systemMessage}|${userInput}`;
+  return crypto.createHash("sha256").update(material).digest("hex");
+}
+
+function readCache(requestKey) {
+  const cached = cacheByRequestKey.get(requestKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() >= cached.expiresAt) {
+    cacheByRequestKey.delete(requestKey);
+    return null;
+  }
+
+  return cached.value;
+}
+
+function writeCache(requestKey, value) {
+  cacheByRequestKey.set(requestKey, {
+    value,
+    expiresAt: Date.now() + HF_CACHE_TTL_SECONDS * 1000,
+  });
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowMs = RATE_LIMIT_WINDOW_SECONDS * 1000;
+  const recent = (requestTimestampsByIp.get(ip) || []).filter(
+    (timestamp) => now - timestamp < windowMs
+  );
+
+  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
+    const oldest = recent[0];
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((windowMs - (now - oldest)) / 1000)
+    );
+    requestTimestampsByIp.set(ip, recent);
+    return { limited: true, retryAfterSeconds };
+  }
+
+  recent.push(now);
+  requestTimestampsByIp.set(ip, recent);
+  return { limited: false, retryAfterSeconds: 0 };
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
@@ -64,10 +126,13 @@ app.get("/api/health", (_req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   const { userInput, systemMessage, temperature } = req.body || {};
+  const trimmedUserInput = typeof userInput === "string" ? userInput.trim() : "";
+  const trimmedSystemMessage =
+    typeof systemMessage === "string" ? systemMessage.trim() : "";
   const normalizedTemp =
     typeof temperature === "number" ? Number(temperature.toFixed(1)) : NaN;
 
-  if (typeof userInput !== "string" || !userInput.trim()) {
+  if (!trimmedUserInput) {
     return res.status(400).json({
       ok: false,
       error: "User input is required.",
@@ -75,7 +140,7 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  if (typeof systemMessage !== "string" || !systemMessage.trim()) {
+  if (!trimmedSystemMessage) {
     return res.status(400).json({
       ok: false,
       error: "System message is required.",
@@ -83,7 +148,7 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  if (userInput.trim().length > HF_MAX_INPUT_CHARS) {
+  if (trimmedUserInput.length > HF_MAX_INPUT_CHARS) {
     return res.status(400).json({
       ok: false,
       error: `User input is too long. Maximum length is ${HF_MAX_INPUT_CHARS} characters.`,
@@ -112,31 +177,86 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  try {
-    const completion = await client.chat.completions.create({
-      model: DEFAULT_MODEL,
-      temperature: normalizedTemp,
-      max_tokens: HF_MAX_OUTPUT_TOKENS,
-      messages: [
-        { role: "system", content: systemMessage.trim() },
-        { role: "user", content: userInput.trim() },
-      ],
-    });
+  const requestKey = buildRequestKey({
+    model: DEFAULT_MODEL,
+    temperature: normalizedTemp,
+    systemMessage: trimmedSystemMessage,
+    userInput: trimmedUserInput,
+    maxTokens: HF_MAX_OUTPUT_TOKENS,
+  });
 
-    const result = completion.choices?.[0]?.message?.content?.trim();
-    if (!result) {
-      return res.status(502).json({
+  const cachedResponse = readCache(requestKey);
+  if (cachedResponse) {
+    return res.json({
+      ok: true,
+      result: cachedResponse.result,
+      meta: {
+        model: cachedResponse.model,
+        temperature: cachedResponse.temperature,
+        cacheHit: true,
+        maxOutputTokens: HF_MAX_OUTPUT_TOKENS,
+        budgetProfile: BUDGET_PROFILE,
+      },
+    });
+  }
+
+  let requestPromise = inFlightByRequestKey.get(requestKey);
+  let createdNewRequest = false;
+
+  if (!requestPromise) {
+    const ip = getClientIp(req);
+    const rateLimit = checkRateLimit(ip);
+    if (rateLimit.limited) {
+      return res.status(429).json({
         ok: false,
-        error: "The model returned an empty response.",
+        error: "Too many requests. Please wait before trying again.",
+        code: "RATE_LIMITED",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
       });
+    }
+
+    requestPromise = (async () => {
+      const completion = await client.chat.completions.create({
+        model: DEFAULT_MODEL,
+        temperature: normalizedTemp,
+        max_tokens: HF_MAX_OUTPUT_TOKENS,
+        messages: [
+          { role: "system", content: trimmedSystemMessage },
+          { role: "user", content: trimmedUserInput },
+        ],
+      });
+
+      const result = completion.choices?.[0]?.message?.content?.trim();
+      if (!result) {
+        const noResultError = new Error("The model returned an empty response.");
+        noResultError.status = 502;
+        throw noResultError;
+      }
+
+      return {
+        result,
+        model: completion.model || DEFAULT_MODEL,
+        temperature: normalizedTemp,
+      };
+    })();
+
+    createdNewRequest = true;
+    inFlightByRequestKey.set(requestKey, requestPromise);
+  }
+
+  try {
+    const completed = await requestPromise;
+
+    if (createdNewRequest) {
+      writeCache(requestKey, completed);
     }
 
     return res.json({
       ok: true,
-      result,
+      result: completed.result,
       meta: {
-        model: completion.model || DEFAULT_MODEL,
-        temperature: normalizedTemp,
+        model: completed.model,
+        temperature: completed.temperature,
         cacheHit: false,
         maxOutputTokens: HF_MAX_OUTPUT_TOKENS,
         budgetProfile: BUDGET_PROFILE,
@@ -169,11 +289,22 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
+    if (error?.status === 502) {
+      return res.status(502).json({
+        ok: false,
+        error: "The model returned an empty response.",
+      });
+    }
+
     return res.status(500).json({
       ok: false,
       error:
         "Unable to complete your request right now. Check API key and model access.",
     });
+  } finally {
+    if (createdNewRequest) {
+      inFlightByRequestKey.delete(requestKey);
+    }
   }
 });
 
