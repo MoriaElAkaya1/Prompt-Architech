@@ -8,17 +8,28 @@ dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const HF_ROUTER_URL =
+  process.env.HF_ROUTER_URL || "https://router.huggingface.co/v1";
+const DEFAULT_MODEL =
+  process.env.HF_MODEL || "swiss-ai/Apertus-8B-Instruct-2509:publicai";
+const API_TOKEN = process.env.HF_TOKEN || process.env.OPENAI_API_KEY;
 
-if (!process.env.OPENAI_API_KEY) {
+if (!API_TOKEN) {
   console.warn(
-    "OPENAI_API_KEY is not set. /api/chat requests will fail until you configure it."
+    "HF_TOKEN is not set. /api/chat requests will fail until you configure it."
   );
 }
 
-const openai = process.env.OPENAI_API_KEY
+if (!process.env.HF_TOKEN && process.env.OPENAI_API_KEY) {
+  console.warn(
+    "Using OPENAI_API_KEY as fallback token. Rename it to HF_TOKEN in .env."
+  );
+}
+
+const client = API_TOKEN
   ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: API_TOKEN,
+      baseURL: HF_ROUTER_URL,
     })
   : null;
 
@@ -60,16 +71,16 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  if (!openai) {
+  if (!client) {
     return res.status(503).json({
       ok: false,
       error:
-        "OPENAI_API_KEY is not configured on the server. Add it to .env and restart.",
+        "HF_TOKEN is not configured on the server. Add it to .env and restart.",
     });
   }
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model: DEFAULT_MODEL,
       temperature: normalizedTemp,
       messages: [
@@ -95,17 +106,13 @@ app.post("/api/chat", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("OpenAI API error:", error?.message || error);
+    console.error("Hugging Face Router API error:", error?.message || error);
 
-    if (
-      error?.status === 429 &&
-      (error?.code === "insufficient_quota" ||
-        error?.type === "insufficient_quota")
-    ) {
+    if (error?.status === 429) {
       return res.status(429).json({
         ok: false,
         error:
-          "Your OpenAI account has insufficient quota. Add billing/credits, then retry.",
+          "Hugging Face rate limit or quota reached. Check your HF plan/credits and retry.",
       });
     }
 
@@ -113,7 +120,7 @@ app.post("/api/chat", async (req, res) => {
       return res.status(401).json({
         ok: false,
         error:
-          "Invalid API key for this project. Verify OPENAI_API_KEY in .env and restart the server.",
+          "Invalid token. Verify HF_TOKEN in .env and restart the server.",
       });
     }
 
@@ -121,7 +128,7 @@ app.post("/api/chat", async (req, res) => {
       return res.status(404).json({
         ok: false,
         error:
-          "The configured model is unavailable for this account. Try OPENAI_MODEL=gpt-4o-mini.",
+          "Configured HF model is unavailable. Try HF_MODEL=swiss-ai/Apertus-8B-Instruct-2509:publicai.",
       });
     }
 

@@ -1,6 +1,6 @@
 # Prompt-Architech: Assignment 2 Prompt Proxy
 
-This project implements a **Prompt Proxy** that wraps user requests with a selected persona and hidden developer rules before sending the final role-separated payload to OpenAI Chat Completions.
+This project implements a **Prompt Proxy** that wraps user requests with a selected persona and hidden developer rules before sending the final role-separated payload through the Hugging Face Inference Router.
 
 ## Assignment Objective Coverage
 
@@ -9,7 +9,7 @@ This project implements a **Prompt Proxy** that wraps user requests with a selec
   - `system`: persona + hardcoded developer rules
   - `user`: raw end-user input
 - API key is server-side only (`.env`), not exposed in browser code.
-- Chat call uses OpenAI Chat Completions with dynamic temperature.
+- Chat call uses an OpenAI-compatible chat endpoint via Hugging Face Router with dynamic temperature.
 
 ### Prompt Engineering (Exceptional target)
 - Required personas are implemented in UI dropdown:
@@ -43,7 +43,7 @@ This project implements a **Prompt Proxy** that wraps user requests with a selec
 ## Tech Stack
 - Frontend: Vanilla `HTML/CSS/JavaScript`
 - Backend: `Node.js + Express` (plain JavaScript)
-- API SDK: `openai`
+- API SDK: `openai` (used against Hugging Face OpenAI-compatible router)
 - Config: `dotenv`
 
 ## Project Structure
@@ -77,10 +77,10 @@ This project implements a **Prompt Proxy** that wraps user requests with a selec
    ```
 3. Edit `.env` and set your key:
    ```env
-   OPENAI_API_KEY=your_real_key_here
+   HF_TOKEN=hf_your_real_token_here
+   HF_MODEL=swiss-ai/Apertus-8B-Instruct-2509:publicai
+   HF_ROUTER_URL=https://router.huggingface.co/v1
    PORT=3000
-   # Optional:
-   # OPENAI_MODEL=gpt-4o-mini
    ```
 4. Start the app:
    ```bash
@@ -107,11 +107,11 @@ Then sends:
 }
 ```
 
-Backend (`server/server.js`) forwards to OpenAI Chat Completions as:
+Backend (`server/server.js`) forwards to Hugging Face Router as:
 
 ```json
 {
-  "model": "gpt-4o-mini",
+  "model": "swiss-ai/Apertus-8B-Instruct-2509:publicai",
   "temperature": 1.0,
   "messages": [
     { "role": "system", "content": "combined system message" },
@@ -141,7 +141,7 @@ Success response:
   "ok": true,
   "result": "model output text",
   "meta": {
-    "model": "gpt-4o-mini",
+    "model": "swiss-ai/Apertus-8B-Instruct-2509:publicai",
     "temperature": 0.0
   }
 }
@@ -159,7 +159,7 @@ Error response:
 ## Security Notes
 - `.env` is gitignored and must never be committed.
 - API key remains server-side only.
-- Frontend never embeds OpenAI credentials.
+- Frontend never embeds provider credentials.
 
 ## Presentation Materials
 - Live demo script: [`PRESENTATION_GUIDE.md`](./PRESENTATION_GUIDE.md)
