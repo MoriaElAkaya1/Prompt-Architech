@@ -322,9 +322,17 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(
-    `[budget-config] profile=${BUDGET_PROFILE}, maxOutputTokens=${HF_MAX_OUTPUT_TOKENS}, maxInputChars=${HF_MAX_INPUT_CHARS}, cacheTtlSeconds=${HF_CACHE_TTL_SECONDS}, rateLimitWindowSeconds=${RATE_LIMIT_WINDOW_SECONDS}, rateLimitMaxRequests=${RATE_LIMIT_MAX_REQUESTS}`
-  );
-  console.log(`Prompt Architect server listening on http://localhost:${PORT}`);
-});
+function startServer() {
+  app.listen(PORT, () => {
+    console.log(
+      `[budget-config] profile=${BUDGET_PROFILE}, maxOutputTokens=${HF_MAX_OUTPUT_TOKENS}, maxInputChars=${HF_MAX_INPUT_CHARS}, cacheTtlSeconds=${HF_CACHE_TTL_SECONDS}, rateLimitWindowSeconds=${RATE_LIMIT_WINDOW_SECONDS}, rateLimitMaxRequests=${RATE_LIMIT_MAX_REQUESTS}`
+    );
+    console.log(`Prompt Architect server listening on http://localhost:${PORT}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
